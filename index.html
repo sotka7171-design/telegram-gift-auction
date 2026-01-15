@@ -8,7 +8,7 @@
 body {
   background:#0f0f0f;
   color:#fff;
-  font-family:Arial,sans-serif;
+  font-family:Arial, sans-serif;
   padding:20px;
 }
 
@@ -21,7 +21,7 @@ p { color:#aaa }
 }
 
 #bar-container {
-  width:320px;
+  width:340px;
   height:10px;
   background:#333;
 }
@@ -30,7 +30,7 @@ p { color:#aaa }
   height:100%;
   width:100%;
   background:#00bfff;
-  transition:width 1s linear;
+  transition:width 1s linear, background 0.3s;
 }
 
 button {
@@ -43,7 +43,7 @@ button {
   background:#111;
   border:1px solid #333;
   padding:10px;
-  height:220px;
+  height:240px;
   overflow-y:auto;
   font-size:14px;
 }
@@ -57,7 +57,7 @@ button {
 
 <h2>Round <span id="round">1</span></h2>
 <p>Highest bid: <span id="bid">0</span> TON</p>
-<p>Total bids this round: <span id="count">0</span></p>
+<p>Total bids: <span id="count">0</span></p>
 
 <div id="timer">60</div>
 <div id="bar-container"><div id="bar"></div></div>
@@ -69,11 +69,12 @@ button {
 <script>
 let round = 1;
 let bid = 0;
-let timeLeft = 60;
 let bidsCount = 0;
+let timeLeft = 60;
 let timer;
-let botTimer;
+let botTimeout;
 
+const bots = ["Alex", "Maria", "Ivan", "CryptoFox", "TON_Whale", "User_394"];
 const logEl = document.getElementById("log");
 
 function log(text) {
@@ -88,12 +89,15 @@ function updateUI() {
   document.getElementById("bid").textContent = bid;
   document.getElementById("count").textContent = bidsCount;
   document.getElementById("timer").textContent = timeLeft;
-  document.getElementById("bar").style.width = (timeLeft/60*100) + "%";
+
+  const bar = document.getElementById("bar");
+  bar.style.width = (timeLeft/60*100) + "%";
+  bar.style.background = timeLeft <= 10 ? "red" : "#00bfff";
 }
 
 function startRound() {
   clearInterval(timer);
-  clearInterval(botTimer);
+  clearTimeout(botTimeout);
 
   timeLeft = 60;
   bid = 0;
@@ -107,35 +111,51 @@ function startRound() {
     if (timeLeft <= 0) endRound();
   }, 1000);
 
-  botTimer = setInterval(botBid, 2000);
+  scheduleBotBid();
 }
 
 function placeBid(who) {
-  bid++;
+  const inc = Math.random() < 0.7 ? 1 : Math.floor(Math.random()*3)+2;
+  bid += inc;
   bidsCount++;
-  log(`💰 ${who} bid ${bid} TON`);
 
-  if (timeLeft <= 10) {
-    timeLeft = 20;
-    log("⏱ Anti-sniping +20s");
+  log(`💰 ${who} bid +${inc} → ${bid} TON`);
+
+  if (timeLeft <= 8 && Math.random() < 0.5) {
+    timeLeft += 10;
+    log("⏱ Anti-sniping +10s");
   }
+
   updateUI();
 }
 
-function botBid() {
-  if (Math.random() < 0.7 && timeLeft > 0) {
-    placeBid("🤖 Bot");
-  }
+function scheduleBotBid() {
+  const delay =
+    timeLeft > 30
+      ? random(4000, 9000)
+      : random(1500, 4000);
+
+  botTimeout = setTimeout(() => {
+    if (timeLeft > 0 && Math.random() < 0.75) {
+      const bot = bots[random(0, bots.length-1)];
+      placeBid("🤖 " + bot);
+    }
+    scheduleBotBid();
+  }, delay);
 }
 
 function endRound() {
   clearInterval(timer);
-  clearInterval(botTimer);
+  clearTimeout(botTimeout);
   log(`🏁 Round ${round} ended. Winner bid: ${bid} TON`);
   setTimeout(() => {
     round++;
     startRound();
-  }, 3000);
+  }, 4000);
+}
+
+function random(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 startRound();
