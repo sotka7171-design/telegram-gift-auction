@@ -6,48 +6,46 @@
 
 <style>
 body {
-  background: #0f0f0f;
-  color: #fff;
-  font-family: Arial, sans-serif;
-  padding: 20px;
+  background:#0f0f0f;
+  color:#fff;
+  font-family:Arial,sans-serif;
+  padding:20px;
 }
 
-h1 { margin-bottom: 5px; }
-p { color: #bbb; }
+h1 { margin-bottom:5px }
+p { color:#aaa }
 
-#timer { font-size: 42px; margin: 15px 0; }
+#timer {
+  font-size:48px;
+  margin:15px 0;
+}
 
 #bar-container {
-  width: 300px;
-  height: 10px;
-  background: #333;
-  margin-bottom: 20px;
+  width:320px;
+  height:10px;
+  background:#333;
 }
 
 #bar {
-  height: 100%;
-  width: 100%;
-  background: #00bfff;
-  transition: width 1s linear, background 0.3s;
+  height:100%;
+  width:100%;
+  background:#00bfff;
+  transition:width 1s linear;
 }
 
-button { padding: 8px 14px; margin-right: 10px; cursor: pointer; }
+button {
+  margin-top:15px;
+  padding:8px 16px;
+}
 
 #log {
-  margin-top: 20px;
-  background: #111;
-  padding: 10px;
-  max-width: 500px;
-  height: 200px;
-  overflow-y: auto;
-  font-size: 13px;
-  border: 1px solid #333;
-}
-
-canvas {
-  margin-top: 20px;
-  background: #111;
-  border: 1px solid #333;
+  margin-top:20px;
+  background:#111;
+  border:1px solid #333;
+  padding:10px;
+  height:220px;
+  overflow-y:auto;
+  font-size:14px;
 }
 </style>
 </head>
@@ -58,19 +56,13 @@ canvas {
 <p>Backend Auction Challenge demo</p>
 
 <h2>Round <span id="round">1</span></h2>
-
-<p>
-Highest bid: <span id="bid">0</span> TON<br>
-Total bids: <span id="bidCount">0</span>
-</p>
+<p>Highest bid: <span id="bid">0</span> TON</p>
+<p>Total bids this round: <span id="count">0</span></p>
 
 <div id="timer">60</div>
-
 <div id="bar-container"><div id="bar"></div></div>
 
-<button onclick="placeBid('You')">Your bid</button>
-
-<canvas id="chart" width="500" height="150"></canvas>
+<button onclick="placeBid('You')">Place bid</button>
 
 <div id="log"></div>
 
@@ -78,13 +70,11 @@ Total bids: <span id="bidCount">0</span>
 let round = 1;
 let bid = 0;
 let timeLeft = 60;
-let interval = null;
-let bidCount = 0;
-let bids = [];
-let winnersHistory = JSON.parse(localStorage.getItem("winners")) || [];
+let bidsCount = 0;
+let timer;
+let botTimer;
 
 const logEl = document.getElementById("log");
-const ctx = document.getElementById("chart").getContext("2d");
 
 function log(text) {
   const d = document.createElement("div");
@@ -93,93 +83,62 @@ function log(text) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-function drawChart() {
-  ctx.clearRect(0, 0, 500, 150);
-  ctx.strokeStyle = "#00bfff";
-  ctx.beginPath();
-
-  bids.forEach((b, i) => {
-    const x = (i / Math.max(bids.length - 1, 1)) * 500;
-    const y = 150 - b * 5;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  });
-
-  ctx.stroke();
-}
-
-function startTimer() {
-  clearInterval(interval);
-  timeLeft = 60;
-  bid = 0;
-  bidCount = 0;
-  bids = [];
-  updateUI();
-  log(`🟢 Round ${round} started`);
-
-  interval = setInterval(() => {
-    timeLeft--;
-    updateUI();
-
-    if (timeLeft <= 0) {
-      clearInterval(interval);
-      endRound();
-    }
-  }, 1000);
-}
-
-function endRound() {
-  const topBids = bids.slice(-3).reverse();
-  winnersHistory.push({ round, winners: topBids });
-  localStorage.setItem("winners", JSON.stringify(winnersHistory));
-
-  log(`🏁 Round ${round} ended`);
-  topBids.forEach((w, i) => log(`🏆 #${i+1}: ${w.user} — ${w.amount} TON`));
-
-  setTimeout(nextRound, 3000);
-}
-
 function updateUI() {
   document.getElementById("round").textContent = round;
   document.getElementById("bid").textContent = bid;
-  document.getElementById("bidCount").textContent = bidCount;
+  document.getElementById("count").textContent = bidsCount;
   document.getElementById("timer").textContent = timeLeft;
-
-  const bar = document.getElementById("bar");
-  bar.style.width = (timeLeft / 60) * 100 + "%";
-  bar.style.background = timeLeft <= 10 ? "red" : "#00bfff";
+  document.getElementById("bar").style.width = (timeLeft/60*100) + "%";
 }
 
-function placeBid(user) {
-  bid++;
-  bidCount++;
-  bids.push({ user, amount: bid });
+function startRound() {
+  clearInterval(timer);
+  clearInterval(botTimer);
 
-  log(`💰 ${user}: ${bid} TON`);
-  drawChart();
+  timeLeft = 60;
+  bid = 0;
+  bidsCount = 0;
+  log(`🟢 Round ${round} started`);
+  updateUI();
+
+  timer = setInterval(() => {
+    timeLeft--;
+    updateUI();
+    if (timeLeft <= 0) endRound();
+  }, 1000);
+
+  botTimer = setInterval(botBid, 2000);
+}
+
+function placeBid(who) {
+  bid++;
+  bidsCount++;
+  log(`💰 ${who} bid ${bid} TON`);
 
   if (timeLeft <= 10) {
     timeLeft = 20;
-    log("⏱ Anti-sniping (+10s)");
+    log("⏱ Anti-sniping +20s");
   }
-
   updateUI();
 }
 
-function nextRound() {
-  round++;
-  startTimer();
+function botBid() {
+  if (Math.random() < 0.7 && timeLeft > 0) {
+    placeBid("🤖 Bot");
+  }
 }
 
-/* 🤖 BOTS */
-const bots = ["Bot_1", "Bot_2", "Bot_3", "Bot_4"];
+function endRound() {
+  clearInterval(timer);
+  clearInterval(botTimer);
+  log(`🏁 Round ${round} ended. Winner bid: ${bid} TON`);
+  setTimeout(() => {
+    round++;
+    startRound();
+  }, 3000);
+}
 
-setInterval(() => {
-  if (interval && Math.random() < 0.6) {
-    placeBid(bots[Math.floor(Math.random() * bots.length)]);
-  }
-}, 1500);
-
-startTimer();
+startRound();
 </script>
 
 </body>
