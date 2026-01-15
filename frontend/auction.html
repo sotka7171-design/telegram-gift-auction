@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Live Auction</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #020617;
+  color: #fff;
+}
+
+.container {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+}
+
+.timer {
+  text-align: center;
+  font-size: 36px;
+  margin-bottom: 20px;
+}
+
+.bids {
+  background: #020617;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 0 25px rgba(56,189,248,0.25);
+}
+
+.bid {
+  padding: 12px;
+  margin-bottom: 10px;
+  background: #020617;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  animation: slideIn 0.4s ease;
+}
+
+.bid.new {
+  border-color: #38bdf8;
+  background: rgba(56,189,248,0.1);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #38bdf8, #22d3ee);
+  color: #000;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* Winner modal */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(2,6,23,0.8);
+  display: none;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background: #020617;
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 0 40px rgba(56,189,248,0.4);
+  animation: pop 0.5s ease;
+}
+
+@keyframes pop {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>Live Auction Round</h1>
+  <div class="timer" id="timer">30</div>
+
+  <div class="bids" id="bids"></div>
+
+  <button onclick="placeBid()">Place random bid</button>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <h2>🎉 Round Winners</h2>
+    <p>User_12 — 120 TON</p>
+    <p>User_7 — 115 TON</p>
+    <br>
+    <button onclick="closeModal()">Close</button>
+  </div>
+</div>
+
+<script>
+let time = 30;
+const timerEl = document.getElementById('timer');
+const bidsEl = document.getElementById('bids');
+const modal = document.getElementById('modal');
+
+function tick() {
+  time--;
+  timerEl.textContent = time;
+
+  if (time <= 0) {
+    clearInterval(interval);
+    modal.style.display = 'flex';
+  }
+}
+
+const interval = setInterval(tick, 1000);
+
+function placeBid() {
+  const bid = document.createElement('div');
+  bid.className = 'bid new';
+  bid.innerHTML = `<strong>User_${Math.floor(Math.random()*50)}</strong> bid 
+    <strong>${Math.floor(Math.random()*50 + 80)} TON</strong>`;
+
+  bidsEl.prepend(bid);
+
+  // Anti-sniping simulation
+  if (time <= 5) {
+    time += 10;
+  }
+
+  setTimeout(() => bid.classList.remove('new'), 500);
+}
+
+function closeModal() {
+  modal.style.display = 'none';
+}
+</script>
+</body>
+</html>
