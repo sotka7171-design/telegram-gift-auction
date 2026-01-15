@@ -1,0 +1,14 @@
+{
+  "name": "auction-bots",
+  "private": true,
+  "scripts": {
+    "start": "ts-node bidder.ts"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
+  }
+}
