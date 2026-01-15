@@ -15,10 +15,7 @@ body {
 h1 { margin-bottom: 5px; }
 p { color: #bbb; }
 
-#timer {
-  font-size: 42px;
-  margin: 15px 0;
-}
+#timer { font-size: 42px; margin: 15px 0; }
 
 #bar-container {
   width: 300px;
@@ -34,27 +31,23 @@ p { color: #bbb; }
   transition: width 1s linear, background 0.3s;
 }
 
-button {
-  padding: 8px 14px;
-  margin-right: 10px;
-  cursor: pointer;
-}
+button { padding: 8px 14px; margin-right: 10px; cursor: pointer; }
 
 #log {
   margin-top: 20px;
   background: #111;
   padding: 10px;
-  max-width: 400px;
+  max-width: 500px;
   height: 200px;
   overflow-y: auto;
-  font-size: 14px;
+  font-size: 13px;
   border: 1px solid #333;
 }
 
-.stat {
-  margin-top: 5px;
-  font-size: 14px;
-  color: #9ad;
+canvas {
+  margin-top: 20px;
+  background: #111;
+  border: 1px solid #333;
 }
 </style>
 </head>
@@ -68,39 +61,58 @@ button {
 
 <p>
 Highest bid: <span id="bid">0</span> TON<br>
-Total bids this round: <span id="bidCount">0</span>
+Total bids: <span id="bidCount">0</span>
 </p>
 
 <div id="timer">60</div>
 
-<div id="bar-container">
-  <div id="bar"></div>
-</div>
+<div id="bar-container"><div id="bar"></div></div>
 
-<button onclick="placeBid()">Place bid</button>
+<button onclick="placeBid('You')">Your bid</button>
+
+<canvas id="chart" width="500" height="150"></canvas>
 
 <div id="log"></div>
 
 <script>
 let round = 1;
 let bid = 0;
-let bidCount = 0;
 let timeLeft = 60;
 let interval = null;
+let bidCount = 0;
+let bids = [];
+let winnersHistory = JSON.parse(localStorage.getItem("winners")) || [];
 
 const logEl = document.getElementById("log");
+const ctx = document.getElementById("chart").getContext("2d");
 
 function log(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  logEl.appendChild(div);
+  const d = document.createElement("div");
+  d.textContent = text;
+  logEl.appendChild(d);
   logEl.scrollTop = logEl.scrollHeight;
+}
+
+function drawChart() {
+  ctx.clearRect(0, 0, 500, 150);
+  ctx.strokeStyle = "#00bfff";
+  ctx.beginPath();
+
+  bids.forEach((b, i) => {
+    const x = (i / Math.max(bids.length - 1, 1)) * 500;
+    const y = 150 - b * 5;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+
+  ctx.stroke();
 }
 
 function startTimer() {
   clearInterval(interval);
   timeLeft = 60;
+  bid = 0;
   bidCount = 0;
+  bids = [];
   updateUI();
   log(`🟢 Round ${round} started`);
 
@@ -116,8 +128,14 @@ function startTimer() {
 }
 
 function endRound() {
-  log(`🏁 Round ${round} ended. Winning bid: ${bid} TON`);
-  setTimeout(nextRound, 2000);
+  const topBids = bids.slice(-3).reverse();
+  winnersHistory.push({ round, winners: topBids });
+  localStorage.setItem("winners", JSON.stringify(winnersHistory));
+
+  log(`🏁 Round ${round} ended`);
+  topBids.forEach((w, i) => log(`🏆 #${i+1}: ${w.user} — ${w.amount} TON`));
+
+  setTimeout(nextRound, 3000);
 }
 
 function updateUI() {
@@ -127,21 +145,21 @@ function updateUI() {
   document.getElementById("timer").textContent = timeLeft;
 
   const bar = document.getElementById("bar");
-  const percent = (timeLeft / 60) * 100;
-  bar.style.width = percent + "%";
+  bar.style.width = (timeLeft / 60) * 100 + "%";
   bar.style.background = timeLeft <= 10 ? "red" : "#00bfff";
 }
 
-function placeBid() {
+function placeBid(user) {
   bid++;
   bidCount++;
+  bids.push({ user, amount: bid });
 
-  log(`💰 Bid #${bidCount}: ${bid} TON`);
+  log(`💰 ${user}: ${bid} TON`);
+  drawChart();
 
-  // anti-sniping
   if (timeLeft <= 10) {
     timeLeft = 20;
-    log("⏱ Anti-sniping activated (+10s)");
+    log("⏱ Anti-sniping (+10s)");
   }
 
   updateUI();
@@ -149,9 +167,17 @@ function placeBid() {
 
 function nextRound() {
   round++;
-  bid = 0;
   startTimer();
 }
+
+/* 🤖 BOTS */
+const bots = ["Bot_1", "Bot_2", "Bot_3", "Bot_4"];
+
+setInterval(() => {
+  if (interval && Math.random() < 0.6) {
+    placeBid(bots[Math.floor(Math.random() * bots.length)]);
+  }
+}, 1500);
 
 startTimer();
 </script>
