@@ -50,6 +50,12 @@ button {
   font-size: 14px;
   border: 1px solid #333;
 }
+
+.stat {
+  margin-top: 5px;
+  font-size: 14px;
+  color: #9ad;
+}
 </style>
 </head>
 
@@ -59,7 +65,11 @@ button {
 <p>Backend Auction Challenge demo</p>
 
 <h2>Round <span id="round">1</span></h2>
-<p>Highest bid: <span id="bid">0</span> TON</p>
+
+<p>
+Highest bid: <span id="bid">0</span> TON<br>
+Total bids this round: <span id="bidCount">0</span>
+</p>
 
 <div id="timer">60</div>
 
@@ -74,6 +84,7 @@ button {
 <script>
 let round = 1;
 let bid = 0;
+let bidCount = 0;
 let timeLeft = 60;
 let interval = null;
 
@@ -89,6 +100,7 @@ function log(text) {
 function startTimer() {
   clearInterval(interval);
   timeLeft = 60;
+  bidCount = 0;
   updateUI();
   log(`🟢 Round ${round} started`);
 
@@ -105,14 +117,13 @@ function startTimer() {
 
 function endRound() {
   log(`🏁 Round ${round} ended. Winning bid: ${bid} TON`);
-  setTimeout(() => {
-    nextRound();
-  }, 2000);
+  setTimeout(nextRound, 2000);
 }
 
 function updateUI() {
   document.getElementById("round").textContent = round;
   document.getElementById("bid").textContent = bid;
+  document.getElementById("bidCount").textContent = bidCount;
   document.getElementById("timer").textContent = timeLeft;
 
   const bar = document.getElementById("bar");
@@ -123,12 +134,14 @@ function updateUI() {
 
 function placeBid() {
   bid++;
-  log(`💰 Bid placed: ${bid} TON`);
+  bidCount++;
+
+  log(`💰 Bid #${bidCount}: ${bid} TON`);
 
   // anti-sniping
   if (timeLeft <= 10) {
     timeLeft = 20;
-    log("⏱ Anti-sniping: time extended to 20s");
+    log("⏱ Anti-sniping activated (+10s)");
   }
 
   updateUI();
