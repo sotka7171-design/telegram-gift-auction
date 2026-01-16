@@ -5,82 +5,20 @@
 <title>Telegram Gift Auction Demo</title>
 
 <style>
-body {
-  background:#0f0f0f;
-  color:#fff;
-  font-family:Arial, sans-serif;
-  padding:20px;
-}
-
-h1 { margin-bottom:5px }
-p { color:#aaa }
-
-#lotBox {
-  padding:15px;
-  border:1px solid #333;
-  background:#111;
-  margin-bottom:15px;
-  transition:opacity .4s, transform .4s;
-}
-
-.fade {
-  opacity:0;
-  transform:translateY(-10px);
-}
-
-.win-animation {
-  animation: winFlash 1.5s ease-in-out;
-  border-color: gold !important;
-}
-
-@keyframes winFlash {
-  0% { background:#111; box-shadow:none; }
-  30% { background:#1a1a00; box-shadow:0 0 20px gold; }
-  60% { background:#111; box-shadow:0 0 30px gold; }
-  100% { background:#111; box-shadow:none; }
-}
-
-#winnerBadge {
-  font-size:22px;
-  color:gold;
-  margin-top:10px;
-  display:none;
-  animation: pop 0.8s ease-out;
-}
-
-@keyframes pop {
-  0% { transform:scale(0.5); opacity:0 }
-  100% { transform:scale(1); opacity:1 }
-}
-
-#timer { font-size:40px; margin:10px 0 }
-
-#bar-container {
-  width:320px;
-  height:10px;
-  background:#333;
-}
-
-#bar {
-  height:100%;
-  width:100%;
-  background:#00bfff;
-  transition:width 1s linear, background .3s;
-}
-
-button { margin-top:10px; padding:8px 16px }
-
-#log, #lotList, #winners, #history {
-  margin-top:20px;
-  background:#111;
-  border:1px solid #333;
-  padding:10px;
-  font-size:13px;
-}
-
-.lotItem { margin-bottom:5px }
-.win { color:#6cff6c }
-.hist { color:#ccc }
+body{background:#0f0f0f;color:#fff;font-family:Arial;padding:20px}
+p{color:#aaa}
+#lotBox{background:#111;border:1px solid #333;padding:15px;margin-bottom:15px;transition:.4s}
+.fade{opacity:0;transform:translateY(-10px)}
+.win-animation{animation:flash 1.5s}
+@keyframes flash{30%{box-shadow:0 0 25px gold}}
+#winnerBadge{display:none;color:gold;font-size:22px}
+#timer{font-size:38px}
+#bar-container{width:320px;height:10px;background:#333}
+#bar{height:100%;background:#00bfff;transition:1s}
+button,input{margin-top:6px;padding:6px}
+.block{margin-top:20px;background:#111;border:1px solid #333;padding:10px}
+.win{color:#6cff6c}
+.hist{color:#ccc}
 </style>
 </head>
 
@@ -95,8 +33,8 @@ button { margin-top:10px; padding:8px 16px }
   <div id="winnerBadge">🏆 YOU WON</div>
 </div>
 
-<h3>Round <span id="round">1</span></h3>
 <p>
+Round <span id="round">1</span><br>
 Highest bid: <span id="bid">0</span> TON<br>
 Total bids: <span id="count">0</span>
 </p>
@@ -104,166 +42,135 @@ Total bids: <span id="count">0</span>
 <div id="timer">60</div>
 <div id="bar-container"><div id="bar"></div></div>
 
-<button onclick="placeBid('You')">Place bid</button>
+<p>💰 Balance: <span id="balance">500</span> TON</p>
+<input id="bidInput" type="number" placeholder="Your bid">
+<button onclick="placeUserBid()">Place bid</button>
+<br>
+<input id="depositInput" type="number" placeholder="Deposit TON">
+<button onclick="deposit()">Deposit</button>
 
-<div id="log"></div>
-<div id="lotList"><h3>Lots</h3></div>
-<div id="winners"><h3>🏆 Winners</h3></div>
-<div id="history"><h3>📜 History</h3></div>
+<div class="block" id="log"></div>
+<div class="block" id="lotList"></div>
+<div class="block" id="winners"></div>
+<div class="block" id="history"></div>
 
 <script>
-const lots = [
-  {name:"🚗 Tesla Model S", start:10},
-  {name:"📱 iPhone 15 Pro", start:5},
-  {name:"🏠 Beach House", start:100},
-  {name:"⌚ Rolex Submariner", start:25}
+const lots=[
+{name:"🏢 IT Business",start:80},
+{name:"🚗 Tesla Model S",start:15},
+{name:"🚙 BMW X7",start:18},
+{name:"🏠 Villa",start:120},
+{name:"🏘 Apartment",start:60},
+{name:"👕 Luxury Jacket",start:8},
+{name:"📱 iPhone 15 Pro",start:5},
+{name:"⌚ Rolex",start:25},
+{name:"🎁 Mystery Box",start:12}
 ];
-
-const bots = ["Alex","Maria","TON_Whale","CryptoFox","User_912"];
-
-let lotIndex=0, round=1, bid=0, bids=0, timeLeft=60;
-let timer, botTimer;
-let winners=[], history=[];
-
+const bots=["Alex","Maria","TON_Whale","CryptoFox","Trader77"];
+let lotIndex=0,round=1,bid=0,bids=0,timeLeft=60;
+let userBalance=500,locked=0;
+let timer,botTimer,winners=[],history=[];
 const logEl=document.getElementById("log");
-const lotBox=document.getElementById("lotBox");
-const badge=document.getElementById("winnerBadge");
 
-function log(t){
-  const d=document.createElement("div");
-  d.textContent=t;
-  logEl.appendChild(d);
-  logEl.scrollTop=logEl.scrollHeight;
-}
+function log(t){logEl.innerHTML+=t+"<br>";logEl.scrollTop=9999}
 
 function renderLots(){
-  const l=document.getElementById("lotList");
-  l.innerHTML="<h3>Lots</h3>";
-  lots.forEach((x,i)=>{
-    const d=document.createElement("div");
-    d.className="lotItem";
-    d.textContent=(i===lotIndex?"▶ ":"")+x.name;
-    l.appendChild(d);
-  });
-}
-
-function renderWinners(){
-  const w=document.getElementById("winners");
-  w.innerHTML="<h3>🏆 Winners</h3>";
-  winners.slice(0,5).forEach(x=>{
-    const d=document.createElement("div");
-    d.className="win";
-    d.textContent=`${x.lot} — ${x.price} TON (${x.winner})`;
-    w.appendChild(d);
-  });
-}
-
-function renderHistory(){
-  const h=document.getElementById("history");
-  h.innerHTML="<h3>📜 History</h3>";
-  history.slice(0,8).forEach(x=>{
-    const d=document.createElement("div");
-    d.className="hist";
-    d.textContent=x;
-    h.appendChild(d);
-  });
+  lotList.innerHTML="<b>Lots</b><br>"+lots.map((l,i)=>(i===lotIndex?"▶ ":"")+l.name).join("<br>");
 }
 
 function loadLot(){
-  const lot=lots[lotIndex];
   lotBox.classList.add("fade");
-
   setTimeout(()=>{
-    bid=lot.start;
+    bid=lots[lotIndex].start;
     bids=0;
-    badge.style.display="none";
+    winnerBadge.style.display="none";
     lotBox.classList.remove("win-animation");
-    document.getElementById("lotName").textContent=lot.name;
-    document.getElementById("startPrice").textContent=lot.start;
+    lotName.textContent=lots[lotIndex].name;
+    startPrice.textContent=lots[lotIndex].start;
     lotBox.classList.remove("fade");
-    log(`🎁 New lot: ${lot.name}`);
     renderLots();
     updateUI();
+    log("🎁 New lot: "+lots[lotIndex].name);
   },400);
 }
 
 function updateUI(){
-  document.getElementById("round").textContent=round;
-  document.getElementById("bid").textContent=bid;
-  document.getElementById("count").textContent=bids;
-  document.getElementById("timer").textContent=timeLeft;
-  document.getElementById("bar").style.width=(timeLeft/60*100)+"%";
-  document.getElementById("bar").style.background=timeLeft<=10?"red":"#00bfff";
+  roundSpan.textContent=round;
+  bidSpan.textContent=bid;
+  countSpan.textContent=bids;
+  timerDiv.textContent=timeLeft;
+  bar.style.width=(timeLeft/60*100)+"%";
+  balance.textContent=userBalance;
 }
 
 function startRound(){
-  clearInterval(timer);
-  clearTimeout(botTimer);
+  clearInterval(timer);clearTimeout(botTimer);
   timeLeft=60;
   loadLot();
-
-  timer=setInterval(()=>{
-    timeLeft--;
-    updateUI();
-    if(timeLeft<=0) endRound();
-  },1000);
-
+  timer=setInterval(()=>{timeLeft--;updateUI();if(timeLeft<=0)endRound()},1000);
   botBid();
 }
 
-function placeBid(who){
-  const inc=Math.random()<0.7?1:Math.floor(Math.random()*3)+2;
-  bid+=inc;
-  bids++;
-  log(`💰 ${who} +${inc} → ${bid} TON`);
-
-  if(timeLeft<=8 && Math.random()<0.5){
-    timeLeft+=10;
-    log("⏱ Anti-sniping +10s");
-  }
-  updateUI();
+function placeUserBid(){
+  const a=Number(bidInput.value);
+  if(a<=bid||a<=0||a>userBalance) return alert("Invalid bid");
+  bid=a;bids++;locked=a;
+  log("💰 You bid "+a+" TON");
+  if(timeLeft<=8) timeLeft+=10;
+  updateUI();bidInput.value="";
 }
 
 function botBid(){
   botTimer=setTimeout(()=>{
-    if(timeLeft>0 && Math.random()<0.75){
-      placeBid("🤖 "+bots[Math.floor(Math.random()*bots.length)]);
+    if(timeLeft>0 && Math.random()<0.7){
+      bid+=Math.floor(Math.random()*3)+1;
+      bids++;
+      log("🤖 Bot bid → "+bid+" TON");
     }
     botBid();
-  }, timeLeft>30 ? rand(4000,9000) : rand(1500,4000));
+  },timeLeft>30?4000:2000);
 }
 
 function endRound(){
-  clearInterval(timer);
-  clearTimeout(botTimer);
-
-  const winner = Math.random()<0.6
-    ? "🤖 "+bots[Math.floor(Math.random()*bots.length)]
-    : "You";
-
-  winners.unshift({lot:lots[lotIndex].name, price:bid, winner});
-  history.unshift(`${lots[lotIndex].name} — ${bid} TON (${winner})`);
-
-  log(`🏁 Sold to ${winner} for ${bid} TON`);
-
-  renderWinners();
-  renderHistory();
-
-  // 🎉 АНИМАЦИЯ ТОЛЬКО ЕСЛИ ВЫИГРАЛ ТЫ
-  if(winner==="You"){
-    badge.style.display="block";
+  clearInterval(timer);clearTimeout(botTimer);
+  const win=Math.random()<0.55?"🤖 "+bots[Math.floor(Math.random()*bots.length)]:"You";
+  if(win==="You"){
+    userBalance-=locked;
+    winnerBadge.style.display="block";
     lotBox.classList.add("win-animation");
   }
-
+  locked=0;
+  winners.unshift(lots[lotIndex].name+" — "+bid+" TON ("+win+")");
+  history.unshift(lots[lotIndex].name+" — "+bid+" TON ("+win+")");
+  winnersBox.innerHTML="<b>Winners</b><br>"+winners.slice(0,5).join("<br>");
+  historyBox.innerHTML="<b>History</b><br>"+history.slice(0,8).join("<br>");
+  log("🏁 Sold to "+win);
   lotIndex=(lotIndex+1)%lots.length;
   round++;
-
   setTimeout(startRound,4000);
 }
 
-function rand(a,b){ return Math.floor(Math.random()*(b-a+1))+a }
+function deposit(){
+  const d=Number(depositInput.value);
+  if(d>0){userBalance+=d;updateUI();depositInput.value="";log("➕ Deposit "+d+" TON")}
+}
 
-renderLots();
+const roundSpan=document.getElementById("round");
+const bidSpan=document.getElementById("bid");
+const countSpan=document.getElementById("count");
+const timerDiv=document.getElementById("timer");
+const bar=document.getElementById("bar");
+const balance=document.getElementById("balance");
+const lotBox=document.getElementById("lotBox");
+const lotName=document.getElementById("lotName");
+const startPrice=document.getElementById("startPrice");
+const winnerBadge=document.getElementById("winnerBadge");
+const lotList=document.getElementById("lotList");
+const winnersBox=document.getElementById("winners");
+const historyBox=document.getElementById("history");
+const bidInput=document.getElementById("bidInput");
+const depositInput=document.getElementById("depositInput");
+
 startRound();
 </script>
 
