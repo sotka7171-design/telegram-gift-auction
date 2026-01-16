@@ -20,23 +20,40 @@ p { color:#aaa }
   border:1px solid #333;
   background:#111;
   margin-bottom:15px;
-  transition:transform 0.4s ease, opacity 0.4s ease;
+  transition:opacity .4s, transform .4s;
 }
 
-.fade-out {
+.fade {
   opacity:0;
   transform:translateY(-10px);
 }
 
-.fade-in {
-  opacity:1;
-  transform:translateY(0);
+.win-animation {
+  animation: winFlash 1.5s ease-in-out;
+  border-color: gold !important;
 }
 
-#timer {
-  font-size:42px;
-  margin:10px 0;
+@keyframes winFlash {
+  0% { background:#111; box-shadow:none; }
+  30% { background:#1a1a00; box-shadow:0 0 20px gold; }
+  60% { background:#111; box-shadow:0 0 30px gold; }
+  100% { background:#111; box-shadow:none; }
 }
+
+#winnerBadge {
+  font-size:22px;
+  color:gold;
+  margin-top:10px;
+  display:none;
+  animation: pop 0.8s ease-out;
+}
+
+@keyframes pop {
+  0% { transform:scale(0.5); opacity:0 }
+  100% { transform:scale(1); opacity:1 }
+}
+
+#timer { font-size:40px; margin:10px 0 }
 
 #bar-container {
   width:320px;
@@ -48,34 +65,22 @@ p { color:#aaa }
   height:100%;
   width:100%;
   background:#00bfff;
-  transition:width 1s linear, background 0.3s;
+  transition:width 1s linear, background .3s;
 }
 
-button {
-  margin-top:10px;
-  padding:8px 16px;
-}
+button { margin-top:10px; padding:8px 16px }
 
-#log {
+#log, #lotList, #winners, #history {
   margin-top:20px;
   background:#111;
   border:1px solid #333;
   padding:10px;
-  height:200px;
-  overflow-y:auto;
   font-size:13px;
 }
 
-#lotList {
-  margin-top:20px;
-  border-top:1px solid #333;
-  padding-top:10px;
-}
-
-.lotItem {
-  font-size:14px;
-  margin-bottom:5px;
-}
+.lotItem { margin-bottom:5px }
+.win { color:#6cff6c }
+.hist { color:#ccc }
 </style>
 </head>
 
@@ -84,9 +89,10 @@ button {
 <h1>Telegram Gift Auction</h1>
 <p>Backend Auction Challenge demo</p>
 
-<div id="lotBox" class="fade-in">
+<div id="lotBox">
   <h2 id="lotName"></h2>
   <p>Start price: <span id="startPrice"></span> TON</p>
+  <div id="winnerBadge">🏆 YOU WON</div>
 </div>
 
 <h3>Round <span id="round">1</span></h3>
@@ -101,82 +107,100 @@ Total bids: <span id="count">0</span>
 <button onclick="placeBid('You')">Place bid</button>
 
 <div id="log"></div>
-
-<div id="lotList">
-  <h3>Lots</h3>
-</div>
+<div id="lotList"><h3>Lots</h3></div>
+<div id="winners"><h3>🏆 Winners</h3></div>
+<div id="history"><h3>📜 History</h3></div>
 
 <script>
 const lots = [
-  { name:"🚗 Tesla Model S", start:10 },
-  { name:"📱 iPhone 15 Pro", start:5 },
-  { name:"🏠 Beach House", start:100 },
-  { name:"⌚ Rolex Submariner", start:25 }
+  {name:"🚗 Tesla Model S", start:10},
+  {name:"📱 iPhone 15 Pro", start:5},
+  {name:"🏠 Beach House", start:100},
+  {name:"⌚ Rolex Submariner", start:25}
 ];
 
-const bots = ["Alex","Maria","CryptoFox","TON_Whale","User_394"];
+const bots = ["Alex","Maria","TON_Whale","CryptoFox","User_912"];
 
-let lotIndex = 0;
-let round = 1;
-let bid = 0;
-let bidsCount = 0;
-let timeLeft = 60;
-let timer;
-let botTimeout;
+let lotIndex=0, round=1, bid=0, bids=0, timeLeft=60;
+let timer, botTimer;
+let winners=[], history=[];
 
-const logEl = document.getElementById("log");
-const lotBox = document.getElementById("lotBox");
+const logEl=document.getElementById("log");
+const lotBox=document.getElementById("lotBox");
+const badge=document.getElementById("winnerBadge");
 
-function log(text){
+function log(t){
   const d=document.createElement("div");
-  d.textContent=text;
+  d.textContent=t;
   logEl.appendChild(d);
   logEl.scrollTop=logEl.scrollHeight;
 }
 
-function renderLotList(){
-  const list=document.getElementById("lotList");
-  lots.forEach((l,i)=>{
+function renderLots(){
+  const l=document.getElementById("lotList");
+  l.innerHTML="<h3>Lots</h3>";
+  lots.forEach((x,i)=>{
     const d=document.createElement("div");
     d.className="lotItem";
-    d.textContent=(i===lotIndex?"▶ ":"") + l.name;
-    list.appendChild(d);
+    d.textContent=(i===lotIndex?"▶ ":"")+x.name;
+    l.appendChild(d);
+  });
+}
+
+function renderWinners(){
+  const w=document.getElementById("winners");
+  w.innerHTML="<h3>🏆 Winners</h3>";
+  winners.slice(0,5).forEach(x=>{
+    const d=document.createElement("div");
+    d.className="win";
+    d.textContent=`${x.lot} — ${x.price} TON (${x.winner})`;
+    w.appendChild(d);
+  });
+}
+
+function renderHistory(){
+  const h=document.getElementById("history");
+  h.innerHTML="<h3>📜 History</h3>";
+  history.slice(0,8).forEach(x=>{
+    const d=document.createElement("div");
+    d.className="hist";
+    d.textContent=x;
+    h.appendChild(d);
   });
 }
 
 function loadLot(){
   const lot=lots[lotIndex];
-  lotBox.classList.add("fade-out");
+  lotBox.classList.add("fade");
 
   setTimeout(()=>{
     bid=lot.start;
+    bids=0;
+    badge.style.display="none";
+    lotBox.classList.remove("win-animation");
     document.getElementById("lotName").textContent=lot.name;
     document.getElementById("startPrice").textContent=lot.start;
-    lotBox.classList.remove("fade-out");
-    lotBox.classList.add("fade-in");
-    log(`🎁 New lot: ${lot.name} (start ${lot.start} TON)`);
+    lotBox.classList.remove("fade");
+    log(`🎁 New lot: ${lot.name}`);
+    renderLots();
+    updateUI();
   },400);
 }
 
 function updateUI(){
   document.getElementById("round").textContent=round;
   document.getElementById("bid").textContent=bid;
-  document.getElementById("count").textContent=bidsCount;
+  document.getElementById("count").textContent=bids;
   document.getElementById("timer").textContent=timeLeft;
-
-  const bar=document.getElementById("bar");
-  bar.style.width=(timeLeft/60*100)+"%";
-  bar.style.background=timeLeft<=10?"red":"#00bfff";
+  document.getElementById("bar").style.width=(timeLeft/60*100)+"%";
+  document.getElementById("bar").style.background=timeLeft<=10?"red":"#00bfff";
 }
 
 function startRound(){
   clearInterval(timer);
-  clearTimeout(botTimeout);
-
+  clearTimeout(botTimer);
   timeLeft=60;
-  bidsCount=0;
   loadLot();
-  updateUI();
 
   timer=setInterval(()=>{
     timeLeft--;
@@ -184,13 +208,13 @@ function startRound(){
     if(timeLeft<=0) endRound();
   },1000);
 
-  scheduleBot();
+  botBid();
 }
 
 function placeBid(who){
   const inc=Math.random()<0.7?1:Math.floor(Math.random()*3)+2;
   bid+=inc;
-  bidsCount++;
+  bids++;
   log(`💰 ${who} +${inc} → ${bid} TON`);
 
   if(timeLeft<=8 && Math.random()<0.5){
@@ -200,35 +224,46 @@ function placeBid(who){
   updateUI();
 }
 
-function scheduleBot(){
-  const delay=timeLeft>30?rand(4000,9000):rand(1500,4000);
-  botTimeout=setTimeout(()=>{
+function botBid(){
+  botTimer=setTimeout(()=>{
     if(timeLeft>0 && Math.random()<0.75){
-      placeBid("🤖 "+bots[rand(0,bots.length-1)]);
+      placeBid("🤖 "+bots[Math.floor(Math.random()*bots.length)]);
     }
-    scheduleBot();
-  },delay);
+    botBid();
+  }, timeLeft>30 ? rand(4000,9000) : rand(1500,4000));
 }
 
 function endRound(){
   clearInterval(timer);
-  clearTimeout(botTimeout);
-  log(`🏁 Sold for ${bid} TON`);
+  clearTimeout(botTimer);
+
+  const winner = Math.random()<0.6
+    ? "🤖 "+bots[Math.floor(Math.random()*bots.length)]
+    : "You";
+
+  winners.unshift({lot:lots[lotIndex].name, price:bid, winner});
+  history.unshift(`${lots[lotIndex].name} — ${bid} TON (${winner})`);
+
+  log(`🏁 Sold to ${winner} for ${bid} TON`);
+
+  renderWinners();
+  renderHistory();
+
+  // 🎉 АНИМАЦИЯ ТОЛЬКО ЕСЛИ ВЫИГРАЛ ТЫ
+  if(winner==="You"){
+    badge.style.display="block";
+    lotBox.classList.add("win-animation");
+  }
+
   lotIndex=(lotIndex+1)%lots.length;
   round++;
 
-  setTimeout(()=>{
-    document.getElementById("lotList").innerHTML="<h3>Lots</h3>";
-    renderLotList();
-    startRound();
-  },4000);
+  setTimeout(startRound,4000);
 }
 
-function rand(min,max){
-  return Math.floor(Math.random()*(max-min+1))+min;
-}
+function rand(a,b){ return Math.floor(Math.random()*(b-a+1))+a }
 
-renderLotList();
+renderLots();
 startRound();
 </script>
 
